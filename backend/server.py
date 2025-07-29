@@ -25,6 +25,108 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
+# WebSocket Connection Manager
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: List[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+        await self.send_personal_message({"type": "connection", "message": "Connected to Kali AI Terminal"}, websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.remove(websocket)
+
+    async def send_personal_message(self, message: dict, websocket: WebSocket):
+        await websocket.send_text(json.dumps(message))
+
+    async def broadcast(self, message: dict):
+        for connection in self.active_connections:
+            await connection.send_text(json.dumps(message))
+
+# AI Processing Handler
+class AIHandler:
+    def __init__(self):
+        pass
+    
+    async def process_query(self, query: str, context: str = "") -> str:
+        # Simulate AI processing for now - you can integrate DeepSeek later
+        if "scan" in query.lower():
+            return f"🔍 AI Analysis: Initiating network scan for target analysis..."
+        elif "exploit" in query.lower():
+            return f"⚠️  AI Suggestion: Potential vulnerabilities detected. Recommended approach: {query}"
+        elif "help" in query.lower():
+            return "🤖 AI Assistant: Available commands: scan, exploit, nmap, sqlmap, metasploit, status"
+        else:
+            return f"🧠 AI Response: Processing '{query}'. Analyzing security context..."
+
+# Security Tools Handler
+class SecurityToolsHandler:
+    def __init__(self):
+        self.tools = ["nmap", "sqlmap", "metasploit", "gobuster", "nikto", "hydra"]
+    
+    async def execute_command(self, command: str, target: str = "") -> dict:
+        try:
+            if command.startswith("nmap"):
+                return {
+                    "tool": "nmap",
+                    "status": "running",
+                    "output": f"Starting Nmap scan on {target or 'localhost'}...\n",
+                    "progress": 10
+                }
+            elif command.startswith("sqlmap"):
+                return {
+                    "tool": "sqlmap",
+                    "status": "running", 
+                    "output": f"SQLMap injection testing on {target}...\n",
+                    "progress": 15
+                }
+            else:
+                return {
+                    "tool": "terminal",
+                    "status": "executed",
+                    "output": f"$ {command}\nExecuted: {command}\n",
+                    "progress": 100
+                }
+        except Exception as e:
+            return {
+                "tool": "error",
+                "status": "failed",
+                "output": f"Error: {str(e)}\n",
+                "progress": 0
+            }
+
+# System Monitor
+class SystemMonitor:
+    @staticmethod
+    def get_system_stats():
+        try:
+            return {
+                "cpu_percent": psutil.cpu_percent(),
+                "memory_percent": psutil.virtual_memory().percent,
+                "disk_percent": psutil.disk_usage('/').percent,
+                "network": len(psutil.net_connections()),
+                "processes": len(psutil.pids()),
+                "platform": platform.system(),
+                "uptime": "Running"
+            }
+        except:
+            return {
+                "cpu_percent": 0,
+                "memory_percent": 0,
+                "disk_percent": 0,
+                "network": 0,
+                "processes": 0,
+                "platform": "Unknown",
+                "uptime": "Unknown"
+            }
+
+# Initialize managers
+manager = ConnectionManager()
+ai_handler = AIHandler()
+security_tools = SecurityToolsHandler()
+
 # Create the main app without a prefix
 app = FastAPI()
 
