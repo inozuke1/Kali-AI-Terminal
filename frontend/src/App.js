@@ -81,7 +81,7 @@ function App() {
       {/* Cyberpunk Background Effect */}
       <div className="absolute inset-0 bg-gradient-to-br from-black via-gray-900 to-black">
         <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-0 left-0 w-full h-full bg-[url('data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%2300ff41" fill-opacity="0.1"%3E%3Ccircle cx="5" cy="5" r="1"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] animate-pulse"></div>
+          <div className="absolute top-0 left-0 w-full h-full bg-green-900/5 animate-pulse"></div>
         </div>
         
         {/* Matrix-style rain effect (CSS animation) */}
