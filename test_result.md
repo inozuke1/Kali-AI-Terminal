@@ -115,15 +115,18 @@ user_problem_statement: |
 backend:
   - task: "WebSocket Connection Manager"
     implemented: true
-    working: true
+    working: false
     file: "server.py"
-    stuck_count: 0
+    stuck_count: 1
     priority: "high"
     needs_retesting: false
     status_history:
       - working: true
         agent: "main"
         comment: "Implemented WebSocket endpoint at /ws with ConnectionManager class for real-time communication"
+      - working: false
+        agent: "testing"
+        comment: "❌ DEPLOYMENT ISSUE: WebSocket works locally (ws://localhost:8001/ws) but external URL routes to frontend dev server instead of backend. Local testing shows all WebSocket message types (execute_command, ai_query, system_stats, scan_target) work correctly. This is a Kubernetes ingress routing issue, not backend code issue."
 
   - task: "AI Query Handler"
     implemented: true
