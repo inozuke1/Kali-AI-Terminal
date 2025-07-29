@@ -269,12 +269,10 @@ metadata:
 
 test_plan:
   current_focus:
-    - "WebSocket Communication Testing"
-    - "Terminal Command Execution"
-    - "AI Query Processing"
-    - "System Stats Real-time Updates"
-    - "Target Scanning Functionality"
-  stuck_tasks: []
+    - "WebSocket Routing Configuration"
+    - "Frontend-Backend Integration Testing"
+  stuck_tasks:
+    - "WebSocket Connection Manager"
   test_all: false
   test_priority: "high_first"
 
