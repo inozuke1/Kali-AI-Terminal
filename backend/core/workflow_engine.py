@@ -93,7 +93,7 @@ class AdvancedWorkflowEngine:
         logger.info("Advanced Workflow Engine initialized")
 
     def _initialize_knowledge_base(self) -> Dict[str, Any]:
-        """Initialize security operations knowledge base"""
+        """Initialize security operations knowledge base with dynamic threat assessment"""
         return {
             "reconnaissance_techniques": [
                 {"name": "Port Scanning", "tool": "nmap", "command": "nmap -sS -O {target}"},
@@ -151,9 +151,11 @@ class AdvancedWorkflowEngine:
         except Exception as e:
             self.state = WorkflowState.ERROR
             logger.error(f"Workflow engine error: {str(e)}")
+            error_message = str(e)
+            logger.error(f"Detailed error: {error_message}")
             return {
                 "status": "error",
-                "error": str(e),
+                "error": error_message,
                 "state": self.state.value
             }
 

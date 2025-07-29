@@ -18,7 +18,8 @@ class SecurityValidator:
     """Validates command security"""
     
     DANGEROUS_COMMANDS = [
-        'rm -rf /', 'del /f /s /q', 'format', 'fdisk', 'dd if=', 'shutdown', 'reboot'
+        'rm -rf /', 'del /f /s /q', 'format', 'fdisk', 'dd if=', 'shutdown', 'reboot',
+        'powershell.exe', 'wget', 'curl', ':(){ :|: & };:','mkfs', 'curl | sh'
     ]
     
     ALLOWED_SECURITY_TOOLS = [

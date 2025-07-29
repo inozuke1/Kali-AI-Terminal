@@ -1,43 +1,3 @@
-async def handle_natural_language_request(websocket: WebSocket, payload: Dict):
-    """Handle natural language requests for workflows"""
-    try:
-        request_text = payload.get("request", "")
-        context = payload.get("context", {})
-
-        logger.info(f"Processing natural language request: {request_text}")
-
-        # Process through workflow engine
-        response = await workflow_engine.process_natural_language_request(request_text, context)
-
-        await connection_manager.send_message(websocket, {
-            "type": "workflow_response",
-            "payload": response
-        })
-
-    except Exception as e:
-        logger.error(f"Natural language processing error: {str(e)}")
-        await connection_manager.send_message(websocket, {
-            "type": "error",
-            "payload": {"message": f"Workflow processing failed: {str(e)}"}
-        })
-
-async def handle_workflow_status(websocket: WebSocket, payload: Dict):
-    """Handle workflow status requests"""
-    try:
-        status = workflow_engine.get_workflow_status()
-
-        await connection_manager.send_message(websocket, {
-            "type": "workflow_status",
-            "payload": status
-        })
-
-    except Exception as e:
-        logger.error(f"Workflow status error: {str(e)}")
-        await connection_manager.send_message(websocket, {
-            "type": "error",
-            "payload": {"message": f"Workflow status request failed: {str(e)}"}
-        })
-
 """
 KALI AI TERMINAL - Main FastAPI Application
 Advanced Security Terminal with AI Intelligence
@@ -309,6 +269,46 @@ async def handle_tool_operation(websocket: WebSocket, payload: Dict):
         await connection_manager.send_message(websocket, {
             "type": "error",
             "payload": {"message": f"Tool operation failed: {str(e)}"}
+        })
+
+async def handle_natural_language_request(websocket: WebSocket, payload: Dict):
+    """Handle natural language requests for workflows"""
+    try:
+        request_text = payload.get("request", payload.get("query", ""))
+        context = payload.get("context", {})
+
+        logger.info(f"Processing natural language request: {request_text}")
+
+        # Process through workflow engine
+        response = await workflow_engine.process_natural_language_request(request_text, context)
+
+        await connection_manager.send_message(websocket, {
+            "type": "workflow_response",
+            "payload": response
+        })
+
+    except Exception as e:
+        logger.error(f"Natural language processing error: {str(e)}")
+        await connection_manager.send_message(websocket, {
+            "type": "error",
+            "payload": {"message": f"Workflow processing failed: {str(e)}"}
+        })
+
+async def handle_workflow_status(websocket: WebSocket, payload: Dict):
+    """Handle workflow status requests"""
+    try:
+        status = workflow_engine.get_workflow_status()
+
+        await connection_manager.send_message(websocket, {
+            "type": "workflow_status",
+            "payload": status
+        })
+
+    except Exception as e:
+        logger.error(f"Workflow status error: {str(e)}")
+        await connection_manager.send_message(websocket, {
+            "type": "error",
+            "payload": {"message": f"Workflow status request failed: {str(e)}"}
         })
 
 @app.get("/api/targets")
