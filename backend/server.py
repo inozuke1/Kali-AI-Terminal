@@ -143,10 +143,131 @@ class StatusCheck(BaseModel):
 class StatusCheckCreate(BaseModel):
     client_name: str
 
-# Add your routes to the router instead of directly to app
+class CommandRequest(BaseModel):
+    command: str
+    target: Optional[str] = ""
+
+class AIQueryRequest(BaseModel):
+    query: str
+    context: Optional[str] = ""
+
+class ScanRequest(BaseModel):
+    target: str
+    scan_type: str = "basic"
+
+# WebSocket endpoint for real-time communication
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await manager.connect(websocket)
+    try:
+        while True:
+            data = await websocket.receive_text()
+            message = json.loads(data)
+            
+            if message["type"] == "execute_command":
+                command = message.get("command", "")
+                target = message.get("target", "")
+                
+                # Send acknowledgment
+                await manager.send_personal_message({
+                    "type": "command_start",
+                    "command": command,
+                    "timestamp": datetime.now().isoformat()
+                }, websocket)
+                
+                # Execute command
+                result = await security_tools.execute_command(command, target)
+                
+                # Send result
+                await manager.send_personal_message({
+                    "type": "command_result",
+                    "result": result,
+                    "timestamp": datetime.now().isoformat()
+                }, websocket)
+                
+            elif message["type"] == "ai_query":
+                query = message.get("query", "")
+                context = message.get("context", "")
+                
+                # Process AI query
+                ai_response = await ai_handler.process_query(query, context)
+                
+                await manager.send_personal_message({
+                    "type": "ai_response",
+                    "query": query,
+                    "response": ai_response,
+                    "timestamp": datetime.now().isoformat()
+                }, websocket)
+                
+            elif message["type"] == "system_stats":
+                stats = SystemMonitor.get_system_stats()
+                await manager.send_personal_message({
+                    "type": "system_stats",
+                    "stats": stats,
+                    "timestamp": datetime.now().isoformat()
+                }, websocket)
+                
+            elif message["type"] == "scan_target":
+                target = message.get("target", "")
+                scan_type = message.get("scan_type", "basic")
+                
+                await manager.send_personal_message({
+                    "type": "scan_start",
+                    "target": target,
+                    "scan_type": scan_type,
+                    "timestamp": datetime.now().isoformat()
+                }, websocket)
+                
+                # Simulate scan progress
+                for progress in [20, 40, 60, 80, 100]:
+                    await asyncio.sleep(1)
+                    await manager.send_personal_message({
+                        "type": "scan_progress",
+                        "target": target,
+                        "progress": progress,
+                        "details": f"Scanning... {progress}% complete",
+                        "timestamp": datetime.now().isoformat()
+                    }, websocket)
+                
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+
+# API Routes for the penetration testing terminal
 @api_router.get("/")
 async def root():
-    return {"message": "Hello World"}
+    return {"message": "Kali AI Terminal Backend Online", "status": "operational"}
+
+@api_router.get("/system/stats")
+async def get_system_stats():
+    return SystemMonitor.get_system_stats()
+
+@api_router.post("/command/execute", response_model=Dict)
+async def execute_command(request: CommandRequest):
+    result = await security_tools.execute_command(request.command, request.target)
+    return {"status": "success", "result": result}
+
+@api_router.post("/ai/query", response_model=Dict)
+async def ai_query(request: AIQueryRequest):
+    response = await ai_handler.process_query(request.query, request.context)
+    return {"status": "success", "response": response}
+
+@api_router.post("/scan/target", response_model=Dict)
+async def scan_target(request: ScanRequest):
+    # This would integrate with actual scanning tools
+    return {
+        "status": "initiated",
+        "target": request.target,
+        "scan_type": request.scan_type,
+        "scan_id": str(uuid.uuid4())
+    }
+
+@api_router.get("/tools/available")
+async def get_available_tools():
+    return {
+        "tools": security_tools.tools,
+        "ai_enabled": True,
+        "websocket_status": "active"
+    }
 
 @api_router.post("/status", response_model=StatusCheck)
 async def create_status_check(input: StatusCheckCreate):
