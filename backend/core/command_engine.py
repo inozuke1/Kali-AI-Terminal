@@ -11,22 +11,22 @@ from datetime import datetime
 from typing import Dict, List, Optional, AsyncGenerator
 import psutil
 import logging
+import re
+
+from .ai_assistant import KaliAIAssistant
+from .security_tools import SecurityToolManager
 
 logger = logging.getLogger(__name__)
 
 class SecurityValidator:
     """Validates command security"""
     
-    DANGEROUS_COMMANDS = [
-        'rm -rf /', 'del /f /s /q', 'format', 'fdisk', 'dd if=', 'shutdown', 'reboot',
-        'powershell.exe', 'wget', 'curl', ':(){ :|: & };:','mkfs', 'curl | sh'
-    ]
-    
-    ALLOWED_SECURITY_TOOLS = [
-        'nmap', 'ncat', 'netstat', 'ss', 'ping', 'traceroute', 'dig', 'nslookup',
-        'sqlmap', 'dirb', 'gobuster', 'nikto', 'hydra', 'john', 'hashcat',
-        'metasploit', 'msfconsole', 'msfvenom', 'aircrack-ng', 'airodump-ng',
-        'burpsuite', 'zaproxy', 'wireshark', 'tshark', 'tcpdump'
+    DANGEROUS_PATTERNS = [
+        r'rm\s+-rf\s+/',
+        r'dd\s+if=/dev/zero',
+        r':\(\)\{\s*:.*\|.*:&\s*\};:',
+        r'mkfs\.',
+        r'shutdown\s+-h\s+now',
     ]
     
     def __init__(self):
@@ -34,115 +34,56 @@ class SecurityValidator:
     
     async def validate_command(self, command: str) -> Dict:
         """Validate command for security risks"""
-        danger_level = 0
-        warnings = []
-        is_allowed = True
-        
-        # Check for dangerous commands
-        for dangerous in self.DANGEROUS_COMMANDS:
-            if dangerous in command.lower():
-                danger_level = 10
-                warnings.append(f"Dangerous command detected: {dangerous}")
-                is_allowed = False
-                break
-        
-        # Check if it's a security tool
-        command_parts = command.split()
-        if command_parts:
-            tool = command_parts[0]
-            if tool in self.ALLOWED_SECURITY_TOOLS:
-                danger_level = max(danger_level, 2)  # Security tools have minimal risk
-                warnings.append(f"Security tool: {tool}")
-            elif tool not in ['ls', 'cat', 'grep', 'ps', 'top', 'htop', 'history']:
-                danger_level = max(danger_level, 5)  # Unknown commands have medium risk
-                warnings.append(f"Unknown command: {tool}")
-        
-        return {
-            'danger_level': danger_level,
-            'warnings': warnings,
-            'is_allowed': is_allowed,
-            'timestamp': datetime.now().isoformat()
-        }
+        for pattern in self.DANGEROUS_PATTERNS:
+            if re.search(pattern, command):
+                return {
+                    'is_allowed': False,
+                    'warning': f"Dangerous command pattern detected: {pattern}"
+                }
+        return {'is_allowed': True, 'warning': None}
 
 class CommandPredictor:
     """Predicts likely next commands based on context"""
     
-    COMMAND_PATTERNS = {
-        'nmap': ['nmap -sV', 'nmap -sC', 'nmap -A', 'nmap -p-'],
-        'scan': ['nmap', 'nikto', 'dirb', 'gobuster'],
-        'exploit': ['msfconsole', 'sqlmap', 'hydra'],
-        'network': ['netstat', 'ss', 'ping', 'traceroute'],
-        'enumeration': ['enum4linux', 'smbclient', 'showmount']
+    COMMAND_CHAINS = {
+        'nmap': ['gobuster', 'nikto', 'msfconsole'],
+        'gobuster': ['nmap', 'whatweb'],
     }
     
-    def __init__(self):
-        self.context_history = []
+    def __init__(self, ai_assistant: KaliAIAssistant):
+        self.ai_assistant = ai_assistant
     
     async def predict_next_commands(self, current_command: str, context: Dict) -> List[str]:
         """Predict likely next commands"""
-        predictions = []
+        base_predictions = self.COMMAND_CHAINS.get(current_command.split()[0], [])
         
-        # Simple pattern matching
-        for pattern, commands in self.COMMAND_PATTERNS.items():
-            if pattern in current_command.lower():
-                predictions.extend(commands[:3])  # Top 3 predictions
+        ai_prompt = f"Given the last command ''{current_command}'' and the context, suggest the next most likely pentesting commands."
+        ai_response = await self.ai_assistant.process_query(ai_prompt, context)
         
-        # Remove duplicates and current command
-        predictions = list(set(predictions))
-        if current_command in predictions:
-            predictions.remove(current_command)
+        ai_predictions = ai_response.get('response', [])
         
-        return predictions[:5]  # Return top 5 predictions
+        return list(set(base_predictions + ai_predictions))[:5]
 
 class OutputAnalyzer:
     """Analyzes command output for insights"""
     
-    def __init__(self):
-        self.analysis_patterns = {
-            'open_ports': r'(\d+/tcp\s+open)',
-            'vulnerabilities': r'(VULNERABLE|CVE-\d{4}-\d{4,})',
-            'credentials': r'(password|username|login)',
-            'network_info': r'(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'
-        }
-    
+    def __init__(self, ai_assistant: KaliAIAssistant):
+        self.ai_assistant = ai_assistant
+
     async def analyze_output(self, output: str, command: str) -> Dict:
         """Analyze command output for security insights"""
-        insights = {
-            'findings': [],
-            'recommendations': [],
-            'risk_level': 'low',
-            'metadata': {
-                'command': command,
-                'output_length': len(output),
-                'timestamp': datetime.now().isoformat()
-            }
-        }
-        
-        # Simple analysis - look for common patterns
-        if 'open' in output.lower() and 'port' in output.lower():
-            insights['findings'].append('Open ports detected')
-            insights['recommendations'].append('Investigate open services')
-            insights['risk_level'] = 'medium'
-        
-        if 'vulnerable' in output.lower():
-            insights['findings'].append('Potential vulnerabilities found')
-            insights['recommendations'].append('Perform detailed vulnerability assessment')
-            insights['risk_level'] = 'high'
-        
-        if len(output) > 10000:
-            insights['findings'].append('Large output detected')
-            insights['recommendations'].append('Consider filtering output')
-        
-        return insights
+        ai_prompt = f"Analyze the output of the command ''{command}'' and provide a summary of findings and recommendations."
+        return await self.ai_assistant.process_query(ai_prompt, {"command_output": output})
 
 class IntelligentCommandEngine:
     """AI-enhanced command processing engine"""
     
-    def __init__(self):
+    def __init__(self, ai_assistant: KaliAIAssistant, security_tools: SecurityToolManager):
+        self.ai_assistant = ai_assistant
+        self.security_tools = security_tools
         self.security_validator = SecurityValidator()
-        self.command_predictor = CommandPredictor()
-        self.output_analyzer = OutputAnalyzer()
-        self.active_processes = {}
+        self.command_predictor = CommandPredictor(ai_assistant)
+        self.output_analyzer = OutputAnalyzer(ai_assistant)
         self.command_history = []
     
     def is_ready(self) -> bool:
@@ -156,139 +97,67 @@ class IntelligentCommandEngine:
         
         logger.info(f"Processing command: {command}")
         
-        try:
-            # Validate security
-            security_check = await self.security_validator.validate_command(command)
-            
-            if not security_check['is_allowed']:
-                return {
-                    'success': False,
-                    'output': f"Command blocked for security: {', '.join(security_check['warnings'])}",
-                    'error': 'Security violation',
-                    'security_check': security_check,
-                    'predictions': [],
-                    'insights': {}
-                }
-            
-            # Execute command
-            result = await self._execute_command_async(command)
-            
-            # Predict next commands
-            predictions = await self.command_predictor.predict_next_commands(command, context)
-            
-            # Analyze output
-            insights = await self.output_analyzer.analyze_output(result['output'], command)
-            
-            # Store in history
-            self.command_history.append({
-                'command': command,
-                'timestamp': datetime.now().isoformat(),
-                'success': result['success'],
-                'context': context
-            })
-            
-            return {
-                'success': result['success'],
-                'output': result['output'],
-                'error': result.get('error', ''),
-                'security_check': security_check,
-                'predictions': predictions,
-                'insights': insights,
-                'execution_time': result.get('execution_time', 0)
-            }
-            
-        except Exception as e:
-            logger.error(f"Command processing error: {str(e)}")
-            return {
-                'success': False,
-                'output': '',
-                'error': str(e),
-                'security_check': {'danger_level': 0, 'warnings': [], 'is_allowed': True},
-                'predictions': [],
-                'insights': {}
-            }
-    
-    async def _execute_command_async(self, command: str) -> Dict:
-        """Execute command asynchronously"""
-        start_time = datetime.now()
+        security_check = await self.security_validator.validate_command(command)
+        if not security_check['is_allowed']:
+            return {'success': False, 'error': security_check['warning']}
+
+        is_tool_command = command.split()[0] in self.security_tools.tools
+        if is_tool_command:
+            # Simplified for brevity, assuming operation maps to method name
+            tool_name, operation, *args = command.split()
+            params = self._parse_args(args)
+            result = await self.security_tools.execute_tool_operation(tool_name, operation, params)
+        else:
+            result = await self._execute_shell_command(command)
         
-        try:
-            # Handle Windows vs Linux commands
-            if os.name == 'nt':  # Windows
-                shell_cmd = ['cmd', '/c', command]
-            else:  # Linux/Unix
-                shell_cmd = ['bash', '-c', command]
+        insights = await self.output_analyzer.analyze_output(result['output'], command)
+        predictions = await self.command_predictor.predict_next_commands(command, context)
+        
+        self.command_history.append({
+            'command': command,
+            'timestamp': datetime.now().isoformat(),
+            'success': result['success'],
+        })
+        
+        return {
+            **result,
+            'insights': insights,
+            'predictions': predictions
+        }
+
+    async def process_natural_language_command(self, nl_command: str, context: dict) -> Dict:
+        """Translate and execute a natural language command."""
+        prompt = f"Translate the following natural language command for a Kali Linux terminal into a precise shell command: ''{nl_command}''." 
+        response = await self.ai_assistant.process_query(prompt, context)
+        
+        shell_command = response.get('response', '').strip()
+        if not shell_command:
+            return {'success': False, 'error': 'AI could not translate the command.'}
             
-            # Execute with timeout
-            process = await asyncio.create_subprocess_exec(
-                *shell_cmd,
+        return await self.process_command(shell_command, context)
+
+    def _parse_args(self, args: list) -> dict:
+        """A simple parser for command line arguments into a dictionary."""
+        params = {}
+        for arg in args:
+            if '=' in arg:
+                key, value = arg.split('=', 1)
+                params[key.strip('--')] = value
+        return params
+
+    async def _execute_shell_command(self, command: str) -> Dict:
+        """Execute a generic shell command"""
+        try:
+            process = await asyncio.create_subprocess_shell(
+                command,
                 stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                limit=1024*1024  # 1MB limit
+                stderr=asyncio.subprocess.PIPE
             )
-            
-            try:
-                stdout, stderr = await asyncio.wait_for(
-                    process.communicate(), 
-                    timeout=30.0  # 30 second timeout
-                )
-                
-                execution_time = (datetime.now() - start_time).total_seconds()
-                
-                output = stdout.decode('utf-8', errors='ignore')
-                error = stderr.decode('utf-8', errors='ignore')
-                
-                return {
-                    'success': process.returncode == 0,
-                    'output': output,
-                    'error': error,
-                    'return_code': process.returncode,
-                    'execution_time': execution_time
-                }
-                
-            except asyncio.TimeoutError:
-                process.kill()
-                await process.wait()
-                return {
-                    'success': False,
-                    'output': '',
-                    'error': 'Command timed out after 30 seconds',
-                    'return_code': -1,
-                    'execution_time': 30.0
-                }
-                
-        except Exception as e:
-            execution_time = (datetime.now() - start_time).total_seconds()
+            stdout, stderr = await process.communicate()
             return {
-                'success': False,
-                'output': '',
-                'error': str(e),
-                'return_code': -1,
-                'execution_time': execution_time
+                'success': process.returncode == 0,
+                'output': stdout.decode(),
+                'error': stderr.decode()
             }
-    
-    async def get_command_history(self, limit: int = 100) -> List[Dict]:
-        """Get command history"""
-        return self.command_history[-limit:]
-    
-    async def get_active_processes(self) -> List[Dict]:
-        """Get list of active processes"""
-        processes = []
-        for proc in psutil.process_iter(['pid', 'name', 'cpu_percent', 'memory_percent']):
-            try:
-                proc_info = proc.info
-                proc_info['cpu_percent'] = proc.cpu_percent()
-                processes.append(proc_info)
-            except (psutil.NoSuchProcess, psutil.AccessDenied):
-                pass
-        
-        return sorted(processes, key=lambda x: x['cpu_percent'], reverse=True)[:20]
-    
-    async def kill_process(self, pid: int) -> bool:
-        """Kill a process by PID"""
-        try:
-            process = psutil.Process(pid)
-            process.terminate()
-            return True
-        except (psutil.NoSuchProcess, psutil.AccessDenied):
-            return False
+        except Exception as e:
+            return {'success': False, 'error': str(e), 'output': ''}

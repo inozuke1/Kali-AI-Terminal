@@ -42,13 +42,13 @@ async def lifespan(app: FastAPI):
     
     logger.info("Starting Kali AI Terminal Backend...")
     
-    # Initialize core components
+    # Initialize core components in the correct order
     ai_assistant = KaliAIAssistant()
-    command_engine = IntelligentCommandEngine()
     security_tools = SecurityToolManager()
+    command_engine = IntelligentCommandEngine(ai_assistant, security_tools)
     vulnerability_scanner = VulnerabilityScanner()
     network_monitor = NetworkMonitor()
-    workflow_engine = AdvancedWorkflowEngine()
+    workflow_engine = AdvancedWorkflowEngine(ai_assistant, command_engine, security_tools)
     
     # Start background tasks
     asyncio.create_task(network_monitor.start_monitoring())
