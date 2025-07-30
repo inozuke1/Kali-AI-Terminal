@@ -3,27 +3,21 @@ KALI AI TERMINAL - AI Assistant Core Module
 Advanced Security Terminal AI Intelligence Component
 """
 
-"""
-KALI AI TERMINAL - AI Assistant Core Module
-Advanced Security Terminal AI Intelligence Component
-"""
+import aiofiles
 
-from .deepseek_agent import UnifiedAIAgent
 
 class KaliAIAssistant:
     def __init__(self):
         """Initialize AI Assistant components"""
-        self.agent = UnifiedAIAgent()
+        pass
     
-    async def process_query(self, query: str, context: dict, provider: str = None):
-        """Process a generic query using the specified AI provider."""
-        # Here, you can enrich the prompt with context if needed
-        return await self.agent.process_query(query, provider)
+    async def process_query(self, query: str, context: dict):
+        """Process AI query"""
+        # Placeholder implementation
+        async with aiofiles.open('query_logs.txt', mode='a') as log:
+            await log.write(f"Query: {query}, Context: {context}\n")
+        return {"response": "Processing your query..."}
 
-    async def translate_command(self, nl_command: str, provider: str = None) -> str:
-        """Translate a natural language command to a shell command."""
-        return await self.agent.translate_command(nl_command, provider)
-
-    def is_ready(self, provider: str = None):
-        """Check if the AI Assistant is ready."""
-        return self.agent.is_ready(provider)
+    def is_ready(self):
+        """Check if AI Assistant is ready"""
+        return True
