@@ -6,6 +6,7 @@ Provides a flexible interface to multiple AI providers for natural language proc
 import aiohttp
 import os
 import logging
+from .firecrawl_integration import FirecrawlIntegration
 from typing import Dict, Any, Protocol
 
 logger = logging.getLogger(__name__)
@@ -48,6 +49,7 @@ class UnifiedAIAgent:
     def __init__(self):
         self.providers = {
             "deepseek": DeepSeekProvider(),
+            "firecrawl": FirecrawlIntegration(),
         }
         self.prompt_engine = PromptEngine()
         self.default_provider = os.getenv("DEFAULT_AI_PROVIDER", "deepseek")
@@ -62,6 +64,8 @@ class UnifiedAIAgent:
 
     def is_ready(self, provider: str = None) -> bool:
         provider = provider or self.default_provider
+        if provider == "firecrawl":
+            return self.providers[provider].is_ready()
         return bool(self.configs.get(provider, {}).get('api_key'))
 
     async def process_query(self, prompt: str, provider: str = None) -> Dict[str, Any]:
@@ -70,7 +74,8 @@ class UnifiedAIAgent:
             return {"error": f"{provider.capitalize()} API key not configured."}
         
         try:
-            return await self.providers[provider].process_query(prompt, self.configs[provider])
+            config = self.configs[provider] if provider != "firecrawl" else {}
+            return await self.providers[provider].process_query(prompt, config)
         except Exception as e:
             logger.error(f"Error with {provider} API: {e}")
             return {"error": str(e)}

@@ -12,7 +12,7 @@ from typing import Dict, List, Optional, Tuple, Any
 from enum import Enum
 from dataclasses import dataclass, asdict
 
-from .deepseek_agent import DeepSeekAgent
+from .deepseek_agent import UnifiedAIAgent
 from .command_engine import IntelligentCommandEngine
 from .security_tools import SecurityToolManager
 from .vulnerability_scanner import VulnerabilityScanner
@@ -76,7 +76,7 @@ class AdvancedWorkflowEngine:
     """
     
     def __init__(self):
-        self.deepseek_agent = DeepSeekAgent()
+        self.deepseek_agent = UnifiedAIAgent()
         self.command_engine = IntelligentCommandEngine()
         self.security_tools = SecurityToolManager()
         self.vuln_scanner = VulnerabilityScanner()
@@ -184,7 +184,7 @@ class AdvancedWorkflowEngine:
         """
         
         try:
-            ai_response = await self.deepseek_agent.process_natural_language(thinking_prompt, context)
+            ai_response = await self.deepseek_agent.process_query(thinking_prompt)
             
             # Extract intent from request using pattern matching as fallback
             intent = self._extract_intent(request)
