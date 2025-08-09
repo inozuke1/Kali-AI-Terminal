@@ -27,7 +27,8 @@ function Start-Frontend {
     
     $frontendScript = @"
 Set-Location '$projectPath'
-npm run electron-dev
+npm install --legacy-peer-deps
+npm start
 "@
     
     Start-Process powershell -ArgumentList @("-NoExit", "-Command", $frontendScript) -WindowStyle Normal
