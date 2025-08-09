@@ -46,46 +46,91 @@ const TerminalComponent = ({ isAIActive }) => {
   const inputRef = useRef(null);
   const outputRef = useRef(null);
 
-  // Initialize WebSocket connection
+  // Initialize WebSocket connection with retry logic
   useEffect(() => {
-    const ws = new WebSocket('ws://127.0.0.1:8000/ws');
-    
-    ws.onopen = () => {
-      console.log('WebSocket connected');
-      setOutput(prev => [...prev, {
-        type: 'success',
-        content: 'Connected to Kali AI Backend',
-        timestamp: new Date().toLocaleTimeString()
-      }]);
+    let ws = null;
+    let reconnectTimeout = null;
+    let reconnectAttempts = 0;
+    const maxReconnectAttempts = 5;
+    const reconnectDelay = 3000; // 3 seconds
+
+    const connectWebSocket = () => {
+      try {
+        ws = new WebSocket('ws://127.0.0.1:8000/ws');
+        
+        ws.onopen = () => {
+          console.log('WebSocket connected');
+          reconnectAttempts = 0; // Reset attempts on successful connection
+          setOutput(prev => [...prev, {
+            type: 'success',
+            content: 'Connected to Kali AI Backend',
+            timestamp: new Date().toLocaleTimeString()
+          }]);
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const message = JSON.parse(event.data);
+            handleWebSocketMessage(message);
+          } catch (e) {
+            console.error('Failed to parse WebSocket message:', e);
+          }
+        };
+
+        ws.onclose = (event) => {
+          console.log('WebSocket disconnected', event.code, event.reason);
+          
+          if (reconnectAttempts < maxReconnectAttempts) {
+            setOutput(prev => [...prev, {
+              type: 'warning',
+              content: `Connection lost. Reconnecting... (${reconnectAttempts + 1}/${maxReconnectAttempts})`,
+              timestamp: new Date().toLocaleTimeString()
+            }]);
+            
+            reconnectTimeout = setTimeout(() => {
+              reconnectAttempts++;
+              connectWebSocket();
+            }, reconnectDelay);
+          } else {
+            setOutput(prev => [...prev, {
+              type: 'error',
+              content: 'Failed to connect to backend after multiple attempts. Using offline mode.',
+              timestamp: new Date().toLocaleTimeString()
+            }]);
+          }
+        };
+
+        ws.onerror = (error) => {
+          console.error('WebSocket error:', error);
+          if (reconnectAttempts === 0) {
+            setOutput(prev => [...prev, {
+              type: 'error',
+              content: 'Backend connection failed. Make sure the backend is running.',
+              timestamp: new Date().toLocaleTimeString()
+            }]);
+          }
+        };
+
+        setWebsocket(ws);
+      } catch (error) {
+        console.error('Failed to create WebSocket connection:', error);
+        setOutput(prev => [...prev, {
+          type: 'error',
+          content: 'Failed to initialize WebSocket connection',
+          timestamp: new Date().toLocaleTimeString()
+        }]);
+      }
     };
 
-    ws.onmessage = (event) => {
-      const message = JSON.parse(event.data);
-      handleWebSocketMessage(message);
-    };
-
-    ws.onclose = () => {
-      console.log('WebSocket disconnected');
-      setOutput(prev => [...prev, {
-        type: 'error',
-        content: 'Disconnected from backend. Reconnecting...',
-        timestamp: new Date().toLocaleTimeString()
-      }]);
-    };
-
-    ws.onerror = (error) => {
-      console.error('WebSocket error:', error);
-      setOutput(prev => [...prev, {
-        type: 'error',
-        content: 'WebSocket connection error',
-        timestamp: new Date().toLocaleTimeString()
-      }]);
-    };
-
-    setWebsocket(ws);
+    // Initial connection attempt with a small delay
+    const initialTimeout = setTimeout(connectWebSocket, 1000);
 
     return () => {
-      ws.close();
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      if (initialTimeout) clearTimeout(initialTimeout);
+      if (ws && ws.readyState !== WebSocket.CLOSED) {
+        ws.close();
+      }
     };
   }, []);
 
