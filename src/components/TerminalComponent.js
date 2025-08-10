@@ -61,6 +61,7 @@ const TerminalComponent = ({ isAIActive }) => {
         ws.onopen = () => {
           console.log('WebSocket connected');
           reconnectAttempts = 0; // Reset attempts on successful connection
+          setWebsocket(ws); // Set websocket state only when connection is established
           setOutput(prev => [...prev, {
             type: 'success',
             content: 'Connected to Kali AI Backend',
