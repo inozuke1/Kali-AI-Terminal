@@ -36,6 +36,54 @@ class DeepSeekProvider:
                 response.raise_for_status()
                 return await response.json()
 
+class EmergentProvider:
+    """AI provider for Emergent AI API"""
+    async def process_query(self, prompt: str, config: Dict[str, Any]) -> Dict[str, Any]:
+        headers = {
+            "Authorization": f"Bearer {config['api_key']}",
+            "Content-Type": "application/json",
+            "User-Agent": "KaliAITerminal/1.0"
+        }
+        payload = {
+            "model": config.get('model', 'emergent-latest'),
+            "messages": [
+                {"role": "system", "content": "You are an expert cybersecurity assistant specializing in Kali Linux and penetration testing. You have deep knowledge of security tools, vulnerability assessment, and ethical hacking techniques. Provide accurate, practical, and safe commands and explanations. Always prioritize security best practices."},
+                {"role": "user", "content": prompt}
+            ],
+            "stream": False,
+            "max_tokens": 2000,
+            "temperature": 0.2,
+            "top_p": 0.9
+        }
+        async with aiohttp.ClientSession() as session:
+            async with session.post(f"{config.get('base_url', 'https://api.emergent.ai/v1')}/chat/completions", json=payload, headers=headers) as response:
+                response.raise_for_status()
+                return await response.json()
+
+class QwenProvider:
+    """AI provider for Qwen Coder API via OpenRouter"""
+    async def process_query(self, prompt: str, config: Dict[str, Any]) -> Dict[str, Any]:
+        headers = {
+            "Authorization": f"Bearer {config['api_key']}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": "http://localhost:3000",
+            "X-Title": "Kali AI Terminal"
+        }
+        payload = {
+            "model": config.get('model', 'qwen/qwen-2.5-coder-32b-instruct'),
+            "messages": [
+                {"role": "system", "content": "You are an expert cybersecurity assistant specializing in Kali Linux and penetration testing. Provide clear, accurate commands and explanations."},
+                {"role": "user", "content": prompt}
+            ],
+            "stream": False,
+            "max_tokens": 2000,
+            "temperature": 0.3
+        }
+        async with aiohttp.ClientSession() as session:
+            async with session.post(f"{config.get('base_url', 'https://openrouter.ai/api/v1')}/chat/completions", json=payload, headers=headers) as response:
+                response.raise_for_status()
+                return await response.json()
+
 class PromptEngine:
     """Generates tailored prompts for different tasks."""
     def get_command_translation_prompt(self, nl_command: str) -> str:
@@ -48,19 +96,31 @@ class UnifiedAIAgent:
     """A unified agent to interact with various AI models."""
     def __init__(self):
         self.providers = {
+            "emergent": EmergentProvider(),
             "deepseek": DeepSeekProvider(),
+            "qwen": QwenProvider(),
             "firecrawl": FirecrawlIntegration(),
         }
         self.prompt_engine = PromptEngine()
-        self.default_provider = os.getenv("DEFAULT_AI_PROVIDER", "deepseek")
+        self.default_provider = os.getenv("DEFAULT_AI_PROVIDER", "emergent")
         self.configs = {
+            "emergent": {
+                "api_key": os.getenv("EMERGENT_API_KEY"),
+                "base_url": os.getenv("EMERGENT_BASE_URL", "https://api.emergent.ai/v1"),
+                "model": os.getenv("EMERGENT_MODEL", "emergent-latest")
+            },
             "deepseek": {
                 "api_key": os.getenv("DEEPSEEK_API_KEY"),
                 "base_url": os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com/v1"),
                 "model": os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
+            },
+            "qwen": {
+                "api_key": os.getenv("QWEN_API_KEY"),
+                "base_url": os.getenv("QWEN_BASE_URL", "https://openrouter.ai/api/v1"),
+                "model": os.getenv("QWEN_MODEL", "qwen/qwen-2.5-coder-32b-instruct")
             }
         }
-        logger.info("Unified AI Agent initialized")
+        logger.info(f"Unified AI Agent initialized with default provider: {self.default_provider}")
 
     def is_ready(self, provider: str = None) -> bool:
         provider = provider or self.default_provider

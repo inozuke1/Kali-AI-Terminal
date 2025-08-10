@@ -219,6 +219,8 @@ class IntelligentCommandEngine:
             else:  # Linux/Unix
                 shell_cmd = ['bash', '-c', command]
             
+            logger.info(f"Executing shell command: {shell_cmd}")
+            
             # Execute with timeout
             process = await asyncio.create_subprocess_exec(
                 *shell_cmd,
@@ -237,6 +239,8 @@ class IntelligentCommandEngine:
                 
                 output = stdout.decode('utf-8', errors='ignore')
                 error = stderr.decode('utf-8', errors='ignore')
+                
+                logger.info(f"Command result - return_code: {process.returncode}, output_len: {len(output)}, error_len: {len(error)}")
                 
                 return {
                     'success': process.returncode == 0,

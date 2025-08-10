@@ -13,6 +13,11 @@ import uvicorn
 import json
 from datetime import datetime
 from typing import Dict, List, Optional
+from dotenv import load_dotenv
+import os
+
+# Load environment variables from .env file
+load_dotenv()
 
 from core.ai_assistant import KaliAIAssistant
 from core.command_engine import IntelligentCommandEngine
@@ -165,14 +170,22 @@ async def handle_command_execution(websocket: WebSocket, payload: Dict):
         # Process command through AI engine
         result = await command_engine.process_command(command, context)
         
+        logger.info(f"Command result: success={result['success']}, output_len={len(result['output'])}, error='{result['error']}'")
+        
         # Send result back to client
-        await connection_manager.send_message(websocket, {
+        response = {
             "type": "command_result",
             "payload": result
-        })
+        }
+        
+        logger.info(f"Sending response: {response['type']}")
+        await connection_manager.send_message(websocket, response)
+        logger.info(f"Response sent successfully")
         
     except Exception as e:
         logger.error(f"Command execution error: {str(e)}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
         await connection_manager.send_message(websocket, {
             "type": "error",
             "payload": {"message": f"Command execution failed: {str(e)}"}
