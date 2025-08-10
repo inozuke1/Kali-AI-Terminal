@@ -113,7 +113,7 @@ const TerminalComponent = ({ isAIActive }) => {
           }
         };
 
-        setWebsocket(ws);
+        setWebsocket(null); // Don't set websocket until connection is established
       } catch (error) {
         console.error('Failed to create WebSocket connection:', error);
         setOutput(prev => [...prev, {
