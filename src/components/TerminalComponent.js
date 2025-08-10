@@ -291,6 +291,13 @@ Security Tools:
     }
 
     // Send command to backend
+    console.log('WebSocket check:', {
+      websocket: !!websocket,
+      readyState: websocket?.readyState,
+      WebSocket_OPEN: WebSocket.OPEN,
+      comparison: websocket?.readyState === WebSocket.OPEN
+    });
+
     if (websocket && websocket.readyState === WebSocket.OPEN) {
       const message = {
         type: isNaturalLanguage(command) ? 'ai_query' : 'execute_command',
@@ -303,8 +310,10 @@ Security Tools:
         }
       };
       
+      console.log('Sending WebSocket message:', message);
       websocket.send(JSON.stringify(message));
     } else {
+      console.log('Falling back to simulation mode - WebSocket not ready');
       // Simulate command execution
       setTimeout(() => {
         setOutput(prev => [...prev, {
