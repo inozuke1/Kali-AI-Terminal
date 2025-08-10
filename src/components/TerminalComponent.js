@@ -80,6 +80,7 @@ const TerminalComponent = ({ isAIActive }) => {
 
         ws.onclose = (event) => {
           console.log('WebSocket disconnected', event.code, event.reason);
+          setWebsocket(null); // Clear websocket state when disconnected
           
           if (reconnectAttempts < maxReconnectAttempts) {
             setOutput(prev => [...prev, {
